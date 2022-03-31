@@ -26,7 +26,8 @@ class MLP(nn.Module):
             lin0_out = self.norm(lin0_out)
         if self.act is not None:
             lin0_out = self.act(lin0_out)
-        return self.lin1(lin0_out)
+        out = self.lin1(lin0_out)
+        return out
 
 
 @FI.register

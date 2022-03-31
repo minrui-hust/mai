@@ -119,29 +119,41 @@ class CollateOperatorCat(CollateOperator):
 
 @register_operator('stack')
 class CollateOperatorStack(CollateOperator):
-    def __init__(self, collator, dim=0, inc_func=None):
+    def __init__(self, collator, dim=0, pad_func=None, inc_func=None):
         super().__init__(collator)
         self.dim = dim
         self.inc_func = inc_func
+        self.pad_func = pad_func
 
     def collate(self, data_list, name_str, batch_info):
+        r'''
+        pad->inc->stack
+        '''
+
         if not data_list:
             return None
 
         new_data_list = []
         acc_list = [0]
+        pad_cfg_list = []
         for data in data_list:
+            if self.pad_func is not None:
+                pad_cfg = self.pad_func(data, data_list)
+                pad_cfg_list.append(pad_cfg)
+                data = F.pad(data, **pad_cfg)
             inc = 0 if self.inc_func is None else self.inc_func(data)
             new_data_list.append(data + acc_list[-1])
             acc_list.append(acc_list[-1]+inc)
 
         # record info for decollate
+        batch_info[f'{name_str}.pad_cfg_list'] = pad_cfg_list
         batch_info[f'{name_str}.accumulations'] = acc_list[:-1]
 
         return torch.stack(new_data_list, dim=self.dim)
 
     def decollate(self, data_batch, name_str, batch_info):
         accumulations = batch_info.get(f'{name_str}.accumulations', None)
+        pad_cfg_list = batch_info.get(f'{name_str}.pad_cfg_list', None)
 
         # 1. do chunk, which reverse the stack operation
         data_list = list(data_batch.unbind(self.dim))
@@ -150,6 +162,18 @@ class CollateOperatorStack(CollateOperator):
         if accumulations is not None:
             for i, data in enumerate(data_list):
                 data_list[i] = data-accumulations[i]
+
+        # 3. remove padding
+        if pad_cfg_list is not None:
+            for i, data in enumerate(data_list):
+                pad_size_list = pad_cfg_list[i]['pad']
+                for j, pad_size in enumerate(pad_size_list):
+                    dim = -1 - int(j/2)  # reverse order
+                    is_front = bool((j+1) % 2)
+                    start = pad_size if is_front else 0
+                    length = data.size(dim) - pad_size
+                    data = data.narrow(dim, start, length)
+                data_list[i] = data
 
         return data_list
 

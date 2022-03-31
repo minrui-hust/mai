@@ -50,9 +50,9 @@ class PlWrapper(pl.LightningModule):
         self.export_dataset.codec = self.export_codec
 
         # collater
-        self.train_collater = self.train_codec.get_collater()
-        self.eval_collater = self.eval_codec.get_collater()
-        self.export_collater = self.export_codec.get_collater()
+        self.train_collater = self.train_codec.collater()
+        self.eval_collater = self.eval_codec.collater()
+        self.export_collater = self.export_codec.collater()
 
         # check if we are doing tensorrt eval
         self.trt_model = None
@@ -138,10 +138,10 @@ class PlWrapper(pl.LightningModule):
         gt_path = None
         pred_path = self.formatted_path
         if self.eval_evaluate:
-            _, gt_path = tempfile.mkstemp(suffix='.pb2', prefix='mdet_gt_')
+            _, gt_path = tempfile.mkstemp(suffix='.tmp', prefix='mdet_gt_')
             if pred_path is None:
                 _, pred_path = tempfile.mkstemp(
-                    suffix='.pb2', prefix='mdet_pred_')
+                    suffix='.tmp', prefix='mdet_pred_')
         pred_path, gt_path = self.eval_dataset.format(
             sample_list, pred_path=pred_path, gt_path=gt_path)
 

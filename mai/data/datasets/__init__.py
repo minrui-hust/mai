@@ -1,3 +1,4 @@
+import mai.data.datasets.filter
 from .sample import Sample
 from .annotation import Annotation
 from .transform import DatasetTransform
