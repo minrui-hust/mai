@@ -57,8 +57,12 @@ def parse_args():
                         help='the dataset root folder, this will override config')
     parser.add_argument('--batch_size', type=int,
                         help='override batch in config')
+    parser.add_argument('--num_workers', type=int,
+                        help='override num_workers in config')
     parser.add_argument('--trt_engine', type=str, help='tensor rt engine path')
     parser.add_argument('--trt_plugin', type=str, help='tensor rt plugin path')
+    parser.add_argument('--trt_sequential',
+                        action='store_true', help='tensor rt plugin path')
     return parser.parse_args()
 
 
@@ -76,6 +80,10 @@ def main(args):
         print(f'INFO: override batch_size to {args.batch_size}')
         GCFG['batch_size'] = args.batch_size
 
+    if args.num_workers:
+        print(f'INFO: override num_workers to {args.num_workers}')
+        GCFG['num_workers'] = args.num_workers
+
     # hack config for evaluation
     config = io.load(args.config)
     config['data'][args.split]['shuffle'] = False
@@ -87,6 +95,7 @@ def main(args):
     if args.trt_engine is not None:
         config['trt_engine'] = args.trt_engine
         config['trt_plugin'] = args.trt_plugin
+        config['trt_sequential'] = args.trt_sequential
         print(f'INFO: evaluating in TRT mode!')
 
     interest_set = set()

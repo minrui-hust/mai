@@ -59,8 +59,9 @@ class PlWrapper(pl.LightningModule):
         if 'trt_engine' in config:
             trt_engine = config['trt_engine']
             trt_plugin = config.get('trt_plugin', None)
+            trt_sequential = config.get('trt_sequential', False)
             from mai.utils.trt_model import TrtModel
-            self.trt_model = TrtModel(trt_engine, trt_plugin)
+            self.trt_model = TrtModel(trt_engine, trt_plugin, trt_sequential)
             self.eval_codec.set_trt()
 
     def forward(self, *input):
@@ -252,7 +253,7 @@ class PlWrapper(pl.LightningModule):
         batch = iter(self.export_dataloader()).next().select(
             ['input']).to('cuda')
 
-        input, input_name, output_name, dynamic_axes = self.export_codec.get_export_info(
+        input, input_name, output_name, dynamic_axes = self.export_codec.export_info(
             batch)
 
         # export
@@ -277,7 +278,7 @@ class PlWrapper(pl.LightningModule):
         batch = iter(self.export_dataloader()).next().select(
             ['input']).to('cuda')
 
-        input, input_name, output_name, dynamic_axes = self.export_codec.get_export_info(
+        input, input_name, output_name, dynamic_axes = self.export_codec.export_info(
             batch)
 
         traced_module = torch.jit.trace(self, input)

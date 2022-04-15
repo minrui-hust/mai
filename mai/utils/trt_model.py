@@ -5,10 +5,12 @@ import torch
 
 
 class TrtModel(object):
-    def __init__(self, engine_path, plugin_path=None):
+    def __init__(self, engine_path, plugin_path=None, sequential=True):
         # load plugin
         if plugin_path is not None:
             ctypes.CDLL(plugin_path)
+
+        self.sequential = sequential  # wether to process batch in sequential
 
         # create execution context
         self.logger = trt.Logger(trt.Logger.ERROR)
@@ -28,6 +30,29 @@ class TrtModel(object):
             self.bindings.append((name, shape, dtype, dir))
 
     def __call__(self, batch):
+        if self.sequential:
+            return self.infer_sequential(batch)
+        else:
+            return self.infer_batch(batch)
+
+    def infer_batch(self, batch):
+        output = {}
+        bindings = []
+        for i, binding in enumerate(self.bindings):
+            name, shape, dtype, dir = binding
+            if dir == 'i':
+                tensor = batch['input'][name]
+                bindings.append(tensor.data_ptr())
+                if (torch.tensor(shape) == -1).any():
+                    self.context.set_binding_shape(i, tensor.shape)
+            else:  # dir=='o'
+                tensor = torch.empty(tuple(shape), dtype=dtype).cuda()
+                bindings.append(tensor.data_ptr())
+                output[name] = tensor
+        self.context.execute_v2(bindings)
+        return output
+
+    def infer_sequential(self, batch):
         output = {}
         for b in range(batch['_info_']['size']):
             bindings = []

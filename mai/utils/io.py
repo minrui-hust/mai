@@ -9,6 +9,7 @@ import sys
 import tempfile
 
 import yaml
+import json
 
 from mai.utils.misc import is_list_of, is_str
 
@@ -86,6 +87,18 @@ class YamlHandler(BaseFileHandler):
     def dump_to_str(self, obj, **kwargs):
         kwargs.setdefault('Dumper', yaml.Dumper)
         return yaml.dump(obj, **kwargs)
+
+
+@register_handler(['json'])
+class JsonHandler(BaseFileHandler):
+    def load_from_fileobj(self, file, **kwargs):
+        return json.load(file, **kwargs)
+
+    def dump_to_fileobj(self, obj, file, **kwargs):
+        json.dump(obj, file, **kwargs)
+
+    def dump_to_str(self, obj, **kwargs):
+        return json.dumps(obj, **kwargs)
 
 
 @register_handler(['pkl', 'pickle'])

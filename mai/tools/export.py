@@ -27,6 +27,8 @@ def parse_args():
                         help='the dataset root folder, this will override config')
     parser.add_argument(
         '--type', type=str, choices=['onnx', 'torch'], default='onnx', help='export type')
+    parser.add_argument('--batch_size', type=int,
+                        help='override batch in config')
     return parser.parse_args()
 
 
@@ -40,12 +42,15 @@ def main(args):
         print(f'INFO: override dataset_root to {args.dataset_root}')
         GCFG['dataset_root'] = args.dataset_root
 
-    # hack infer config for export
+    if args.batch_size:
+        print(f'INFO: override batch_size to {args.batch_size}')
+        GCFG['batch_size'] = args.batch_size
+
+    # hack export config for export
     config = io.load(args.config)
-    config['data']['infer']['shuffle'] = False
-    config['data']['infer']['pin_memory'] = False
-    config['data']['infer']['num_workers'] = 1
-    config['data']['infer']['batch_size'] = 1
+    config['data']['export']['shuffle'] = False
+    config['data']['export']['pin_memory'] = False
+    config['data']['export']['num_workers'] = 1
 
     # create lightning module
     if args.ckpt:

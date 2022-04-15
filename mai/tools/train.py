@@ -27,6 +27,8 @@ def parse_args():
     parser.add_argument(
         '--ckpt', help='the checkpoint file to resume from')
     parser.add_argument(
+        '--tune', help='the checkpoint file to preload for tune')
+    parser.add_argument(
         '--work_dir', default='./log', help='the folder logs store')
     parser.add_argument('--gpu', type=int, nargs='+',
                         default=[0], help='specify the gpus used for training')
@@ -77,6 +79,9 @@ def main(args):
 
     # lightning module
     pl_module = PlWrapper(config)
+    if args.tune is not None:
+        print(f'Load pre trained model {args.tune} for tuning')
+        pl_module = PlWrapper.load_from_checkpoint(args.tune, config=config)
 
     max_epochs = config['fit']['max_epochs']
     print(f'Total epochs: {max_epochs}')
