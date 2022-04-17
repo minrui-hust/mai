@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from mai.utils import FI
+from mai.model import BaseModule
 
 
 @FI.register
-class MLP(nn.Module):
+class MLP(BaseModule):
     def __init__(self, in_channels, hidden_channels, out_channels=None,
                  linear_cfg=dict(type='Linear'),
                  norm_cfg=dict(type='LayerNorm'),
@@ -31,7 +32,7 @@ class MLP(nn.Module):
 
 
 @FI.register
-class ResBlock(nn.Module):
+class ResBlock(BaseModule):
     def __init__(self, residual_cfg,
                  norm_cfg=dict(type='LayerNorm', normalized_shape=64),
                  act_cfg=dict(type='ReLU', inplace=True),
@@ -57,7 +58,7 @@ class ResBlock(nn.Module):
 
 
 @FI.register
-class TransformerEncoderLayer(nn.Module):
+class TransformerEncoderLayer(BaseModule):
     def __init__(self,
                  atten_cfg=dict(type='MultiHeadSelfAtten'),
                  ff_cfg=dict(type='MLP'),
@@ -74,7 +75,7 @@ class TransformerEncoderLayer(nn.Module):
 
 
 @FI.register
-class TransformerDecoderLayer(nn.Module):
+class TransformerDecoderLayer(BaseModule):
     def __init__(self, self_atten_cfg=dict(type='MultiHeadSelfAtten'),
                  cross_atten_cfg=dict(type='MultiHeadAtten'),
                  ff_cfg=dict(type='MLP'),
@@ -95,7 +96,7 @@ class TransformerDecoderLayer(nn.Module):
 
 
 @FI.register
-class TransformerEncoder(nn.Module):
+class TransformerEncoder(BaseModule):
     def __init__(self, layer_cfg, layer_num=1):
         super().__init__()
 
@@ -109,7 +110,7 @@ class TransformerEncoder(nn.Module):
 
 
 @FI.register
-class TransformerDecoder(nn.Module):
+class TransformerDecoder(BaseModule):
     def __init__(self, layer_cfg, layer_num=1):
         super().__init__()
 

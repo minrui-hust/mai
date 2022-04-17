@@ -78,10 +78,12 @@ def main(args):
     config['ngpu'] = len(args.gpu)
 
     # lightning module
-    pl_module = PlWrapper(config)
     if args.tune is not None:
         print(f'Load pre trained model {args.tune} for tuning')
-        pl_module = PlWrapper.load_from_checkpoint(args.tune, config=config)
+        pl_module = PlWrapper.load_from_checkpoint(
+            args.tune, config=config, strict=False)
+    else:
+        pl_module = PlWrapper(config)
 
     max_epochs = config['fit']['max_epochs']
     print(f'Total epochs: {max_epochs}')

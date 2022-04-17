@@ -32,6 +32,19 @@ class BaseModule(nn.Module):
             if isinstance(m, BaseModule):
                 m.set_mode(mode)
 
+    def freeze(self):
+        self.do_freeze(self)
+
+    def do_freeze(self, module):
+        # freeze parameter of this module
+        for _, param in module._parameters.items():
+            if param is not None:
+                param.requires_grad = False
+
+        # freeze parameter of submodule
+        for _, submodule in module._modules.items():
+            self.do_freeze(submodule)
+
     def forward(self, *args, **kwargs):
         if self.mode == 'train':
             return self.forward_train(*args, **kwargs)
