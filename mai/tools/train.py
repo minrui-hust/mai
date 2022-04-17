@@ -46,6 +46,8 @@ def parse_args():
                         help='override batch in config')
     parser.add_argument('--num_workers', type=int,
                         help='override num_workers in config')
+    parser.add_argument('--max_epochs', type=int,
+                        help='override max_epochs in config')
     return parser.parse_args()
 
 
@@ -70,6 +72,10 @@ def main(args):
     if args.num_workers:
         print(f'INFO: override num_workers to {args.num_workers}')
         GCFG['num_workers'] = args.num_workers
+
+    if args.max_epochs:
+        print(f'INFO: override max_epochs to {args.max_epochs}')
+        GCFG['max_epochs'] = args.max_epochs
 
     # load config
     config = io.load(args.config)
