@@ -8,3 +8,6 @@
 ```python
 python setup.py develop
 ```
+
+## architecture
+See doc/mai.drawio for more details, you may need to install draw.io
