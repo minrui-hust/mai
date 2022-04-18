@@ -1,5 +1,31 @@
+import os
+import torch
 from setuptools import find_packages, setup
-from torch.utils.cpp_extension import BuildExtension
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+
+
+def make_cuda_ext(name,
+                  module,
+                  sources,
+                  cuda_extra_args=[],
+                  cpp_extra_args=[],
+                  extra_include_path=[]):
+
+    if not torch.cuda.is_available():
+        raise EnvironmentError('CUDA is required to compile this package!')
+
+    extra_compile_args = {'cxx': cpp_extra_args + [],
+                          'nvcc': cuda_extra_args + ['-D__CUDA_NO_HALF_OPERATORS__',
+                                                     '-D__CUDA_NO_HALF_CONVERSIONS__',
+                                                     '-D__CUDA_NO_HALF2_OPERATORS__']}
+
+    return CUDAExtension(
+        name='{}.{}'.format(module, name),
+        sources=[os.path.join(*module.split('.'), p) for p in sources],
+        extra_compile_args=extra_compile_args,
+        include_dirs=extra_include_path,
+        define_macros=[]  # use extra_agrs instead
+    )
 
 
 def parse_requirements(fname='requirements.txt', with_version=True):
@@ -77,6 +103,7 @@ def parse_requirements(fname='requirements.txt', with_version=True):
     packages = list(gen_packages_items())
     return packages
 
+
 install_requires = parse_requirements()
 
 if __name__ == '__main__':
@@ -96,6 +123,15 @@ if __name__ == '__main__':
         classifiers=[],
         license='',
         install_requires=install_requires,
-        ext_modules=[],
+        ext_modules=[
+            make_cuda_ext(
+                name='ms_deform_attn',
+                module='mai.ops.ms_deform_attn',
+                sources=[
+                    'src/vision.cpp',
+                    'src/cpu/ms_deform_attn_cpu.cpp',
+                    'src/cuda/ms_deform_attn_cuda.cu',
+                ]),
+        ],
         cmdclass={'build_ext': BuildExtension},
         zip_safe=False)
