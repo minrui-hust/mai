@@ -105,8 +105,7 @@ class PlWrapper(pl.LightningModule):
             elif key in batch:
                 batch_interest[key] = batch[key]
             else:
-                print(key)
-                raise NotImplementedError
+                pass
 
         # decollate to sample_list
         sample_list = self.eval_collater.decollate(batch_interest)

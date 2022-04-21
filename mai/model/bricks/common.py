@@ -21,7 +21,7 @@ class MLP(BaseModule):
         self.act = FI.create(act_cfg)
         self.lin1 = FI.create(linear_cfg, hidden_channels, out_channels)
 
-    def forward(self, x):
+    def forward_train(self, x):
         lin0_out = self.lin0(x)
         if self.norm is not None:
             lin0_out = self.norm(lin0_out)
@@ -44,7 +44,7 @@ class ResBlock(BaseModule):
         self.act = FI.create(act_cfg)
         self.sampler = sampler
 
-    def forward(self, x, *args, **kwargs):
+    def forward_train(self, x, *args, **kwargs):
         identity = x
         if self.sampler:
             identity = self.sampler(identity)
@@ -68,7 +68,7 @@ class TransformerEncoderLayer(BaseModule):
         self.atten_res_block = ResBlock(atten_cfg, norm_cfg, act_cfg=None)
         self.ff_res_block = ResBlock(ff_cfg, norm_cfg, act_cfg=None)
 
-    def forward(self, x, **args):
+    def forward_train(self, x, **args):
         att_out = self.atten_res_block(x, **args)
         ff_out = self.ff_res_block(att_out)
         return ff_out
@@ -88,9 +88,9 @@ class TransformerDecoderLayer(BaseModule):
             cross_atten_cfg, norm_cfg, act_cfg=None)
         self.ff_res_block = ResBlock(ff_cfg, norm_cfg, act_cfg=None)
 
-    def forward(self, x, y, **args):
+    def forward_train(self, x, y, **args):
         self_atten_out = self.self_atten_res_block(x)
-        cross_atten_out = self.cross_atten_res_block(x, y, **args)
+        cross_atten_out = self.cross_atten_res_block(self_atten_out, y, **args)
         ff_out = self.ff_res_block(cross_atten_out)
         return ff_out
 
@@ -103,7 +103,7 @@ class TransformerEncoder(BaseModule):
         self.layer_list = nn.ModuleList(
             [FI.create(layer_cfg) for _ in range(layer_num)])
 
-    def forward(self, x, **args):
+    def forward_train(self, x, **args):
         for layer in self.layer_list:
             x = layer(x, **args)
         return x
@@ -117,7 +117,7 @@ class TransformerDecoder(BaseModule):
         self.layer_list = nn.ModuleList(
             [FI.create(layer_cfg) for _ in range(layer_num)])
 
-    def forward(self, x, y, **args):
+    def forward_train(self, x, y, **args):
         for layer in self.layer_list:
             x = layer(x, y, **args)
         return x

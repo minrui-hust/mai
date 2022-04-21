@@ -8,10 +8,11 @@ from torch.nn.init import constant_, xavier_uniform_
 
 from mai.ops.ms_deform_attn.ms_deform_attn_func import MSDeformAttnFunction
 from mai.utils import FI
+from mai.model import BaseModule
 
 
 @FI.register
-class MultiHeadSelfAtten(nn.Module):
+class MultiHeadSelfAtten(BaseModule):
     def __init__(self, embed_dim, num_heads, dropout=0.0, batch_first=True):
         super().__init__()
 
@@ -20,7 +21,7 @@ class MultiHeadSelfAtten(nn.Module):
                                            dropout=dropout,
                                            batch_first=batch_first)
 
-    def forward(self, x, mask=None):
+    def forward_train(self, x, mask=None):
         if mask is None:
             return self.atten(x, x, x, key_padding_mask=mask, need_weights=False)[0]
 
@@ -38,7 +39,7 @@ class MultiHeadSelfAtten(nn.Module):
 
 
 @FI.register
-class MultiHeadCrossAtten(nn.Module):
+class MultiHeadCrossAtten(BaseModule):
     def __init__(self, embed_dim, num_heads, dropout=0.0, batch_first=True):
         super().__init__()
 
@@ -47,7 +48,7 @@ class MultiHeadCrossAtten(nn.Module):
                                            dropout=dropout,
                                            batch_first=batch_first)
 
-    def forward(self, x, y, mask=None):
+    def forward_train(self, x, y, mask=None):
         if mask is None:
             return self.atten(x, y, y, key_padding_mask=mask, need_weights=False)[0]
 
@@ -72,7 +73,7 @@ def _is_power_of_2(n):
 
 
 @FI.register
-class MSDeformAttn(nn.Module):
+class MSDeformAttn(BaseModule):
     def __init__(self, d_model=256, n_levels=4, n_heads=8, n_points=4):
         """
         Multi-Scale Deformable Attention Module
@@ -125,7 +126,7 @@ class MSDeformAttn(nn.Module):
         xavier_uniform_(self.output_proj.weight.data)
         constant_(self.output_proj.bias.data, 0.)
 
-    def forward(self, x, y, input_spatial_shapes, input_level_start_index, reference_points, mask=None):
+    def forward_train(self, x, y, input_spatial_shapes, input_level_start_index, reference_points, mask=None):
         """
         :param x                           (N, Length_{query}, C)
         :param y                           (N, \sum_{l=0}^{L-1} H_l \cdot W_l, C)

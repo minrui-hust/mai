@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument('config', help='training config file')
     parser.add_argument('--ckpt', help='the checkpoint file to resume from')
     parser.add_argument('--split', type=str, default='eval',
-                        choices=['train', 'eval'],  help='split to evaluate')
+                        choices=['train', 'eval', 'export'],  help='split to evaluate')
     parser.add_argument('--evaluate', action='store_true',
                         help='wether do evaluation')
     parser.add_argument('--evaluate_loss', action='store_true',
