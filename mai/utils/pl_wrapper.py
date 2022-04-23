@@ -39,16 +39,6 @@ class PlWrapper(pl.LightningModule):
         self.export_codec = FI.create(config['codec']['export'])
         self.export_codec.set_export()
 
-        # dataset
-        self.train_dataset = FI.create(config['data']['train']['dataset'])
-        self.train_dataset.codec = self.train_codec
-
-        self.eval_dataset = FI.create(config['data']['eval']['dataset'])
-        self.eval_dataset.codec = self.eval_codec
-
-        self.export_dataset = FI.create(config['data']['export']['dataset'])
-        self.export_dataset.codec = self.export_codec
-
         # collater
         self.train_collater = self.train_codec.collater()
         self.eval_collater = self.eval_codec.collater()
