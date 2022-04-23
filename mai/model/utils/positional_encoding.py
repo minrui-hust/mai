@@ -38,6 +38,8 @@ def SinPositionalEncoding2D(height, width, d_model):
         raise ValueError("Cannot use sin/cos positional encoding with "
                          "odd dimension (got dim={:d})".format(d_model))
 
+    pe = torch.empty(d_model, height, width)
+
     # Each dimension use half of d_model
     d_model = int(d_model / 2)
 
@@ -49,7 +51,6 @@ def SinPositionalEncoding2D(height, width, d_model):
     scale_term = torch.exp(-torch.arange(0, d_model, 2, dtype=torch.float32) *
                            (math.log(10000.0) / d_model))
 
-    pe = torch.empty(d_model, height, width)
     pe[0:d_model:2, :, :] = torch.sin(
         pos_w * scale_term).transpose(0, 1).unsqueeze(1).repeat(1, height, 1)
     pe[1:d_model:2, :, :] = torch.cos(

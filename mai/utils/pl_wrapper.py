@@ -156,17 +156,26 @@ class PlWrapper(pl.LightningModule):
 
     def train_dataloader(self):
         dataloader_cfg = self.config['data']['train'].copy()
-        dataloader_cfg.pop('dataset')
+        dataset_cfg = dataloader_cfg.pop('dataset')
+        if not hasattr(self, 'train_dataset') or self.train_dataset is None:
+            self.train_dataset = FI.create(dataset_cfg)
+            self.train_dataset.codec = self.train_codec
         return DataLoader(self.train_dataset, collate_fn=self.train_collater, **dataloader_cfg)
 
     def val_dataloader(self):
         dataloader_cfg = self.config['data']['eval'].copy()
-        dataloader_cfg.pop('dataset')
+        dataset_cfg = dataloader_cfg.pop('dataset')
+        if not hasattr(self, 'eval_dataset') or self.eval_dataset is None:
+            self.eval_dataset = FI.create(dataset_cfg)
+            self.eval_dataset.codec = self.eval_codec
         return DataLoader(self.eval_dataset, collate_fn=self.eval_collater, **dataloader_cfg)
 
     def export_dataloader(self):
         dataloader_cfg = self.config['data']['export'].copy()
-        dataloader_cfg.pop('dataset')
+        dataset_cfg = dataloader_cfg.pop('dataset')
+        if not hasattr(self, 'export_dataset') or self.export_dataset is None:
+            self.export_dataset = FI.create(dataset_cfg)
+            self.export_dataset.codec = self.export_codec
         return DataLoader(self.export_dataset, collate_fn=self.export_collater, **dataloader_cfg)
 
     def configure_optimizers(self):
