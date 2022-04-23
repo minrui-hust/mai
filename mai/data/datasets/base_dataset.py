@@ -46,7 +46,7 @@ class BaseDataset(TorchDataset):
     def transform(self, sample, info):
         if self.transforms:
             for t in self.transforms:
-                t(sample, info)
+                t(sample, info, self)
 
     def encode(self, sample, info):
         r'''
