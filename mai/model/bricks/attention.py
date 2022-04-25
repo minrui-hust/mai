@@ -10,6 +10,8 @@ from mai.ops.ms_deform_attn.ms_deform_attn_func import MSDeformAttnFunction
 from mai.utils import FI
 from mai.model import BaseModule
 
+from torch.cuda.amp.autocast_mode import autocast
+
 
 @FI.register
 class MultiHeadSelfAtten(BaseModule):

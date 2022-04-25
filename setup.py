@@ -14,7 +14,7 @@ def make_cuda_ext(name,
     if not torch.cuda.is_available():
         raise EnvironmentError('CUDA is required to compile this package!')
 
-    extra_compile_args = {'cxx': cpp_extra_args + [],
+    extra_compile_args = {'cxx': cpp_extra_args + ['-DWITH_CUDA'],
                           'nvcc': cuda_extra_args + ['-D__CUDA_NO_HALF_OPERATORS__',
                                                      '-D__CUDA_NO_HALF_CONVERSIONS__',
                                                      '-D__CUDA_NO_HALF2_OPERATORS__']}

@@ -27,12 +27,14 @@ def parse_args():
                         choices=['train', 'eval', 'export'],  help='split to evaluate')
     parser.add_argument('--evaluate', action='store_true',
                         help='wether do evaluation')
-    parser.add_argument('--evaluate_loss', action='store_true',
-                        help='wether do evaluation loss')
+    parser.add_argument('--store_topk', type=str,
+                        help='wether store topk loss samples')
+    parser.add_argument('--store_topk_args', type=partial(yaml.load,
+                                                          Loader=yaml.FullLoader), default='{k: 100, key: loss}', help='topk args')
     parser.add_argument(
-        '--store_pred', help='output folder to store predictions(after postprocess)')
+        '--store_pred', type=str, help='output folder to store predictions(after postprocess)')
     parser.add_argument(
-        '--store_formatted', help='output folder to store formatted predictions(after postprocess)')
+        '--store_formatted', type=str, help='output folder to store formatted predictions(after postprocess)')
     parser.add_argument(
         '--store_output', help='output folder to store raw predictions(before postprocess)')
     parser.add_argument('--show_output', action='store_true',
@@ -79,6 +81,9 @@ def main(args):
     if args.batch_size:
         print(f'INFO: override batch_size to {args.batch_size}')
         GCFG['batch_size'] = args.batch_size
+    if args.store_topk:  # loss is cal on batch, to get loss of sample, make batch_size 1
+        print(f'INFO: override batch_size to 1 for topk evaluation')
+        GCFG['batch_size'] = 1
 
     if args.num_workers:
         print(f'INFO: override num_workers to {args.num_workers}')
@@ -87,7 +92,7 @@ def main(args):
     # hack config for evaluation
     config = io.load(args.config)
     config['data'][args.split]['shuffle'] = False
-    config['runtime']['eval']['log_loss'] = args.evaluate_loss
+    config['runtime']['eval']['evaluate_loss'] = args.store_topk
     config['runtime']['eval']['evaluate'] = args.evaluate
     config['runtime']['eval']['evaluate_min_epoch'] = 0
     config['runtime']['eval']['formatted_path'] = args.store_formatted
@@ -118,6 +123,10 @@ def main(args):
     if args.show_pred:
         interest_set |= {'pred', 'anno', 'data', 'meta'}
         print(f'show_pred_args:\n{args.show_pred_args}')
+    if args.store_topk is not None:
+        interest_set |= {'pred', 'anno', 'data', 'loss', 'meta'}
+        epoch_interest_set |= {'pred', 'anno', 'data', 'loss', 'meta'}
+        print(f'store_topk_args:\n{args.store_topk_args}')
 
     def step_hook(sample, module):
         if args.show_output:
@@ -141,6 +150,15 @@ def main(args):
                 sample_name = sample['meta']['sample_name']
                 io.dump(sample['pred'],
                         f'{args.store_output}/{sample_name}.pkl')
+
+        if args.store_topk is not None:
+            os.makedirs(args.store_topk, exist_ok=True)
+            loss = torch.tensor(
+                [sample['loss'][args.store_topk_args['key']] for sample in sample_list])
+            _, topk_indice = torch.topk(loss, k=args.store_topk_args['k'])
+            for i, idx in enumerate(topk_indice):
+                io.dump(sample_list[idx], os.path.join(
+                    args.store_topk, f'{i}.pkl'))
 
     config['runtime']['eval']['interest_set'] = interest_set
     config['runtime']['eval']['epoch_interest_set'] = epoch_interest_set

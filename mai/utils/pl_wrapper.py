@@ -78,12 +78,13 @@ class PlWrapper(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         output = self.eval_model(batch)
 
-        # check if should log loss
-        if self.eval_log_loss:
+        # check if should evaluate and log loss
+        if self.eval_evaluate_loss:
             loss_dict = self.eval_codec.loss(output, batch)
-            for name, value in loss_dict.items():
-                self.log(f'eval/{name}', value,
-                         batch_size=batch['_info_']['size'])
+            if self.eval_log_loss:
+                for name, value in loss_dict.items():
+                    self.log(f'eval/{name}', value,
+                             batch_size=batch['_info_']['size'])
 
         # construct batch interested
         batch_interest = Sample(_info_=batch['_info_'])
@@ -92,6 +93,11 @@ class PlWrapper(pl.LightningModule):
                 batch_interest[key] = self.eval_codec.decode(output, batch)
             elif key == 'output':
                 batch_interest[key] = output
+            elif key == 'loss':
+                for loss_name in loss_dict.keys():
+                    loss_dict[loss_name] = loss_dict[loss_name].detach(
+                    ).cpu().item()
+                batch_interest[key] = loss_dict
             elif key in batch:
                 batch_interest[key] = batch[key]
             else:
@@ -103,7 +109,11 @@ class PlWrapper(pl.LightningModule):
         # do callback on samples
         if self.eval_step_hook is not None and sample_list:
             for sample in sample_list:
-                self.eval_step_hook(sample, self)
+                if isinstance(self.eval_step_hook, list):
+                    for hook in self.eval_step_hook:
+                        hook(sample, self)
+                else:
+                    self.eval_step_hook(sample, self)
 
         # output for epoch end
         eval_step_out = []
@@ -120,9 +130,13 @@ class PlWrapper(pl.LightningModule):
 
         # TODO: collate sample_list from other ddp rank
 
-        # epoch callback
+        # eval epoch end callback hook
         if self.eval_epoch_hook is not None:
-            self.eval_epoch_hook(sample_list, self)
+            if isinstance(self.eval_epoch_hook, list):
+                for hook in self.eval_epoch_hook:
+                    hook(sample_list, self)
+            else:
+                self.eval_epoch_hook(sample_list, self)
 
         # format
         gt_path = None
@@ -204,6 +218,8 @@ class PlWrapper(pl.LightningModule):
         # flags for evaluation
         self.evaluate_min_epoch = self.config['runtime']['eval'].get(
             'evaluate_min_epoch', 0)
+        self.eval_evaluate_loss = self.config['runtime']['eval'].get(
+            'evaluate_loss', True)
         self.eval_log_loss = self.config['runtime']['eval'].get(
             'log_loss', True)
         self.eval_evaluate = self.config['runtime']['eval'].get(

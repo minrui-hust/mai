@@ -50,7 +50,9 @@ class Collator(object):
                     return COLLATE_OPERATORS[op_type](self, **args)
 
         # no rules found, get default
-        if is_seq_of(value_list, dict) or is_seq_of(value_list, list) or is_seq_of(value_list, tuple):
+        if name_str in ['.loss']:
+            return COLLATE_OPERATORS['unique'](self)
+        elif is_seq_of(value_list, dict) or is_seq_of(value_list, list) or is_seq_of(value_list, tuple):
             return COLLATE_OPERATORS['recursive'](self)
         else:
             return COLLATE_OPERATORS['append'](self)
@@ -66,7 +68,9 @@ class Collator(object):
                     return COLLATE_OPERATORS[op_type](self, **args)
 
         # no rules found, get default
-        if isinstance(value_batch, dict) or isinstance(value_batch, tuple) or is_list_of(value_batch, list):
+        if name_str in ['.loss']:
+            return COLLATE_OPERATORS['unique'](self)
+        elif isinstance(value_batch, dict) or isinstance(value_batch, tuple) or is_list_of(value_batch, list):
             return COLLATE_OPERATORS['recursive'](self)
         else:
             return COLLATE_OPERATORS['append'](self)
