@@ -34,6 +34,19 @@ class Factory(object):
                 raise KeyError(
                     f'{module_name} is not registered nor it is a torch or torchvision module')
 
+    def get(self, module_name):
+        if module_name in self._component_dict:
+            return self._component_dict[module_name]
+        elif module_name in nn.__dict__:
+            return nn.__dict__[module_name]
+        else:
+            import torchvision.models as mm
+            if module_name in mm.__dict__:
+                return mm.__dict__[module_name]
+            else:
+                raise KeyError(
+                    f'{module_name} is not registered nor it is a torch or torchvision module')
+
     def _register(self, component_cls):
         if not inspect.isclass(component_cls):
             raise TypeError(

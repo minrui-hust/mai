@@ -12,11 +12,15 @@ from mai.utils import GCFG
 from mai.utils import io
 from mai.utils import PlWrapper
 
+import warnings
 
 r'''
 Evaluate model on evaluation set.
 Optionally save predict output and evaluation metric
 '''
+
+
+warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
 
 def parse_args():
@@ -119,14 +123,14 @@ def main(args):
         epoch_interest_set |= {'anno', 'pred', 'meta'}
     if args.show_output:
         interest_set |= {'output', 'gt', 'input', 'meta'}
-        print(f'show_output_args:\n{args.show_output_args}')
+        print(f'show_output_args: {args.show_output_args}')
     if args.show_pred:
         interest_set |= {'pred', 'anno', 'data', 'meta'}
-        print(f'show_pred_args:\n{args.show_pred_args}')
+        print(f'show_pred_args: {args.show_pred_args}')
     if args.store_topk is not None:
         interest_set |= {'pred', 'anno', 'data', 'loss', 'meta'}
         epoch_interest_set |= {'pred', 'anno', 'data', 'loss', 'meta'}
-        print(f'store_topk_args:\n{args.store_topk_args}')
+        print(f'store_topk_args: {args.store_topk_args}')
 
     def step_hook(sample, module):
         if args.show_output:
