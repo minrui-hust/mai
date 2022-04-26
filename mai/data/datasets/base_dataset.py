@@ -58,11 +58,14 @@ class BaseDataset(TorchDataset):
     def load(self, sample, info):
         raise NotImplementedError
 
-    def plot(self, sample, **kwargs):
+    @classmethod
+    def plot(cls, sample, **kwargs):
         raise NotImplementedError
 
-    def format(self, result, pred_path=None, gt_path=None):
+    @classmethod
+    def format(cls, result, pred_path=None, gt_path=None):
         raise NotImplementedError
 
-    def evaluate(self, predict_path, gt_path=None):
+    @classmethod
+    def evaluate(cls, predict_path, gt_path=None):
         raise NotImplementedError

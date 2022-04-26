@@ -44,6 +44,9 @@ class PlWrapper(pl.LightningModule):
         self.eval_collater = self.eval_codec.collater()
         self.export_collater = self.export_codec.collater()
 
+        # dataset
+        self.dataset_cls = FI.get(config['data']['eval']['dataset']['type'])
+
         # check if we are doing tensorrt eval
         self.trt_model = None
         if 'trt_engine' in config:
@@ -146,12 +149,12 @@ class PlWrapper(pl.LightningModule):
             if pred_path is None:
                 _, pred_path = tempfile.mkstemp(
                     suffix='.tmp', prefix='mdet_pred_')
-        pred_path, gt_path = self.eval_dataset.format(
+        pred_path, gt_path = self.dataset_cls.format(
             sample_list, pred_path=pred_path, gt_path=gt_path)
 
         # evaluation
         if self.eval_evaluate:
-            metric = self.eval_dataset.evaluate(pred_path, gt_path)
+            metric = self.dataset_cls.evaluate(pred_path, gt_path)
             self.log_dict(metric)
 
             os.unlink(gt_path)
