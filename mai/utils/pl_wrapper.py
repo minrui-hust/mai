@@ -76,16 +76,15 @@ class PlWrapper(pl.LightningModule):
     def training_epoch_end(self, epoch_output):
         pass
 
-    def validation_step(self, batch, batch_idx, dl_idx):
+    def validation_step(self, batch, batch_idx, *args):
         output = self.eval_model(batch)
 
         # check if should evaluate and log loss
         if self.eval_evaluate_loss:
             loss_dict = self.eval_codec.loss(output, batch)
             if self.eval_log_loss:
-                prefix = 'eval' if dl_idx == 0 else f'eval_{dl_idx}'
                 for name, value in loss_dict.items():
-                    self.log(f'{prefix}/{name}', value,
+                    self.log(f'eval/{name}', value,
                              batch_size=batch['_info_']['size'])
 
         # construct batch interested
@@ -127,8 +126,11 @@ class PlWrapper(pl.LightningModule):
         return eval_step_out
 
     def validation_epoch_end(self, step_out_all):
-        for i, step_out in enumerate(step_out_all):
-            self.validation_epoch_end_one(step_out, i)
+        if isinstance(step_out_all[0][0], list):  # multiple dataloader case
+            for i, step_out in enumerate(step_out_all):
+                self.validation_epoch_end_one(step_out, i)
+        else:  # single dataloader case
+            self.validation_epoch_end_one(step_out_all, 0)
 
     def validation_epoch_end_one(self, step_output_list, dl_idx):
         # collate epoch_output
@@ -146,10 +148,10 @@ class PlWrapper(pl.LightningModule):
         gt_path = None
         pred_path = self.formatted_path
         if self.eval_evaluate:
-            _, gt_path = tempfile.mkstemp(suffix='.tmp', prefix='mdet_gt_')
+            _, gt_path = tempfile.mkstemp(suffix='', prefix='mdet_gt_')
             if pred_path is None:
                 _, pred_path = tempfile.mkstemp(
-                    suffix='.tmp', prefix='mdet_pred_')
+                    suffix='', prefix='mdet_pred_')
         pred_path, gt_path = self.eval_datasets[dl_idx].format(
             sample_list, pred_path=pred_path, gt_path=gt_path)
 
