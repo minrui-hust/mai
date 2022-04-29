@@ -40,7 +40,7 @@ def parse_args():
                         help='wether don profile, use together with overfit')
     parser.add_argument('--autoscale_lr', default=False, action='store_true',
                         help='disable auto scale learning rate according to gpu number')
-    parser.add_argument('--dataset_root', type=str,
+    parser.add_argument('--dataset_root', type=str, nargs='+',
                         help='the dataset root folder, this will override config')
     parser.add_argument('--batch_size', type=int,
                         help='override batch in config')
@@ -63,7 +63,10 @@ def main(args):
 
     if args.dataset_root:
         print(f'INFO: override dataset_root to {args.dataset_root}')
-        GCFG['dataset_root'] = args.dataset_root
+        if len(args.dataset_root) == 1:
+            GCFG['dataset_root'] = args.dataset_root[0]  # backward compatance
+        else:
+            GCFG['dataset_root'] = args.dataset_root
 
     if args.batch_size:
         print(f'INFO: override batch_size to {args.batch_size}')

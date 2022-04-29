@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 import torch
 import torch.optim as optim
 from torch.utils.data.dataloader import DataLoader
+from torch.utils.data import ConcatDataset
 
 from mai.data.datasets import Sample
 from mai.utils import FI
@@ -44,9 +45,6 @@ class PlWrapper(pl.LightningModule):
         self.eval_collater = self.eval_codec.collater()
         self.export_collater = self.export_codec.collater()
 
-        # dataset
-        self.dataset_cls = FI.get(config['data']['eval']['dataset']['type'])
-
         # check if we are doing tensorrt eval
         self.trt_model = None
         if 'trt_engine' in config:
@@ -78,15 +76,16 @@ class PlWrapper(pl.LightningModule):
     def training_epoch_end(self, epoch_output):
         pass
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, dl_idx):
         output = self.eval_model(batch)
 
         # check if should evaluate and log loss
         if self.eval_evaluate_loss:
             loss_dict = self.eval_codec.loss(output, batch)
             if self.eval_log_loss:
+                prefix = 'eval' if dl_idx == 0 else f'eval_{dl_idx}'
                 for name, value in loss_dict.items():
-                    self.log(f'eval/{name}', value,
+                    self.log(f'{prefix}/{name}', value,
                              batch_size=batch['_info_']['size'])
 
         # construct batch interested
@@ -127,11 +126,13 @@ class PlWrapper(pl.LightningModule):
 
         return eval_step_out
 
-    def validation_epoch_end(self, step_output_list):
+    def validation_epoch_end(self, step_out_all):
+        for i, step_out in enumerate(step_out_all):
+            self.validation_epoch_end_one(step_out, i)
+
+    def validation_epoch_end_one(self, step_output_list, dl_idx):
         # collate epoch_output
         sample_list = list(itertools.chain.from_iterable(step_output_list))
-
-        # TODO: collate sample_list from other ddp rank
 
         # eval epoch end callback hook
         if self.eval_epoch_hook is not None:
@@ -149,12 +150,12 @@ class PlWrapper(pl.LightningModule):
             if pred_path is None:
                 _, pred_path = tempfile.mkstemp(
                     suffix='.tmp', prefix='mdet_pred_')
-        pred_path, gt_path = self.dataset_cls.format(
+        pred_path, gt_path = self.eval_datasets[dl_idx].format(
             sample_list, pred_path=pred_path, gt_path=gt_path)
 
         # evaluation
         if self.eval_evaluate:
-            metric = self.dataset_cls.evaluate(pred_path, gt_path)
+            metric = self.eval_datasets[dl_idx].evaluate(pred_path, gt_path)
             self.log_dict(metric)
 
             os.unlink(gt_path)
@@ -162,28 +163,66 @@ class PlWrapper(pl.LightningModule):
                 os.unlink(pred_path)
 
     def train_dataloader(self):
-        dataloader_cfg = self.config['data']['train'].copy()
-        dataset_cfg = dataloader_cfg.pop('dataset')
-        if not hasattr(self, 'train_dataset') or self.train_dataset is None:
-            self.train_dataset = FI.create(dataset_cfg)
-            self.train_dataset.codec = self.train_codec
-        return DataLoader(self.train_dataset, collate_fn=self.train_collater, **dataloader_cfg)
+        dl_cfg = self.config['data']['train']['dataloader']
+        return DataLoader(ConcatDataset(self.train_datasets), collate_fn=self.train_collater, **dl_cfg)
 
     def val_dataloader(self):
-        dataloader_cfg = self.config['data']['eval'].copy()
-        dataset_cfg = dataloader_cfg.pop('dataset')
-        if not hasattr(self, 'eval_dataset') or self.eval_dataset is None:
-            self.eval_dataset = FI.create(dataset_cfg)
-            self.eval_dataset.codec = self.eval_codec
-        return DataLoader(self.eval_dataset, collate_fn=self.eval_collater, **dataloader_cfg)
+        dl_cfg = self.config['data']['eval']['dataloader']
+        return [DataLoader(ds, collate_fn=self.eval_collater, **dl_cfg) for ds in self.eval_datasets]
 
     def export_dataloader(self):
-        dataloader_cfg = self.config['data']['export'].copy()
-        dataset_cfg = dataloader_cfg.pop('dataset')
-        if not hasattr(self, 'export_dataset') or self.export_dataset is None:
-            self.export_dataset = FI.create(dataset_cfg)
-            self.export_dataset.codec = self.export_codec
-        return DataLoader(self.export_dataset, collate_fn=self.export_collater, **dataloader_cfg)
+        dl_cfg = self.config['data']['export']
+        return DataLoader(self.export_dataset, collate_fn=self.export_collater, **dl_cfg)
+
+    @property
+    def train_datasets(self):
+        if not hasattr(self,  '_train_datasets'):
+            ds_cfg = self.config['data']['train']['dataset']
+            if isinstance(ds_cfg, list):
+                self._train_datasets = [FI.create(cfg) for cfg in ds_cfg]
+            else:
+                self._train_datasets = [FI.create(ds_cfg)]
+            for ds in self._train_datasets:
+                ds.codec = self.train_codec
+        return self._train_datasets
+
+    @property
+    def train_dataset(self):
+        return self.train_datasets[0]
+
+    @property
+    def eval_datasets(self):
+        if not hasattr(self,  '_eval_datasets'):
+            ds_cfg = self.config['data']['eval']['dataset']
+            if isinstance(ds_cfg, list):
+                self._eval_datasets = [
+                    FI.create(cfg) for cfg in ds_cfg]
+            else:
+                self._eval_datasets = [FI.create(ds_cfg)]
+            for ds in self._eval_datasets:
+                ds.codec = self.eval_codec
+        return self._eval_datasets
+
+    @property
+    def eval_dataset(self):
+        return self.eval_datasets[0]
+
+    @property
+    def export_datasets(self):
+        if not hasattr(self,  '_export_datasets'):
+            ds_cfg = self.config['data']['export']['dataset']
+            if isinstance(ds_cfg, list):
+                self._export_datasets = [
+                    FI.create(cfg) for cfg in ds_cfg]
+            else:
+                self._export_datasets = [FI.create(ds_cfg)]
+            for ds in self._export_datasets:
+                ds.codec = self.export_codec
+        return self._export_datasets
+
+    @property
+    def export_dataset(self):
+        return self.export_datasets[0]
 
     def configure_optimizers(self):
         # optimizer
@@ -241,11 +280,11 @@ class PlWrapper(pl.LightningModule):
         self.formatted_path = self.config['runtime']['eval'].get(
             'formatted_path', None)
 
-    @property
+    @ property
     def eval_model(self):
         return self.trt_model or self.util_models['eval_model']
 
-    @property
+    @ property
     def export_model(self):
         return self.util_models['export_model']
 

@@ -1,5 +1,6 @@
 from torch.utils.data import Dataset as TorchDataset
 import numpy as np
+import bisect
 
 from mai.data.datasets.sample import Sample
 from mai.utils import FI
@@ -81,20 +82,24 @@ class ConcatDataset(TorchDataset):
     Concat a list of datasets(of same type) to be a new one
     '''
 
+    @staticmethod
+    def cumsum(sequence):
+        r = [0]
+        for e in sequence:
+            r.append(r[-1]+len(e))
+        return r
+
     def __init__(self, datasets=[], codec=None):
         super().__init__()
+        assert len(datasets) > 0, 'need at least one dataset to concat'
+
         self.datasets = [FI.create(ds) for ds in datasets]
         self.codec = FI.create(codec)
 
-        offset = 0
-        self.datasets_range = []
-        for ds in self.datasets:
-            self.datasets_range.append([offset, offset+len(ds)])
-            offset += len(ds)
-        self.datasets_range = np.array(self.datasets_range, dtype=np.int32)
+        self.cumulative_sizes = self.cumsum(self.datasets)
 
     def __len__(self):
-        return sum([len(ds) for ds in self.datasets])
+        return self.cumulative_sizes[-1]
 
     def __getitem__(self, idx):
         if isinstance(idx, list):
@@ -103,8 +108,13 @@ class ConcatDataset(TorchDataset):
             return self._get_one_item(idx)
 
     def _get_one_item(self, idx):
-        ds_idx = np.searchsorted(self.datasets_range[:, 1], idx)
-        return self.datasets[ds_idx][idx - self.datasets_range[ds_idx, 0]]
+        if idx < 0:
+            idx = len(self) + idx
+        assert idx < len(self), 'index exceed limit'
+
+        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx) - 1
+        sample_idx = idx - self.cumulative_sizes[dataset_idx]
+        return self.datasets[dataset_idx][sample_idx]
 
     def plot(self, sample, **kwargs):
         self.datasets[0].plot(sample, **kwargs)
@@ -179,17 +189,18 @@ class RandomDownsampleDataset(TorchDataset):
     random downsample of a dataset, each get item will return a random sample
     '''
 
-    def __init__(self, dataset=None, factor=0.5, codec=None):
+    def __init__(self, dataset=None, size=1, codec=None):
         super().__init__()
-        self.factor = factor
+        self.size = size
         self.dataset = FI.create(dataset)
         self.codec = FI.create(codec)
 
-        self.random_indice = np.random.shuffle(np.arange(len(self.dataset)))
+        self.random_indice = np.arange(len(self.dataset))
+        np.random.shuffle(self.random_indice)
         self.inner_idx = 0
 
     def __len__(self):
-        return int(self.factor * len(self.dataset))
+        return self.size
 
     def __getitem__(self, idx):
         if isinstance(idx, list):
@@ -202,7 +213,7 @@ class RandomDownsampleDataset(TorchDataset):
 
         self.inner_idx += 1
         if self.inner_idx == len(self.dataset):
-            self.random_indice = np.random.shuffle(self.random_indice)
+            np.random.shuffle(self.random_indice)
 
         return sample
 
