@@ -126,11 +126,12 @@ class PlWrapper(pl.LightningModule):
         return eval_step_out
 
     def validation_epoch_end(self, step_out_all):
-        if isinstance(step_out_all[0][0], list):  # multiple dataloader case
+        # single dataloader case
+        if len(step_out_all[0]) == 0 or not isinstance(step_out_all[0][0], list):
+            self.validation_epoch_end_one(step_out_all, 0)
+        else:  # multiple dataloader case
             for i, step_out in enumerate(step_out_all):
                 self.validation_epoch_end_one(step_out, i)
-        else:  # single dataloader case
-            self.validation_epoch_end_one(step_out_all, 0)
 
     def validation_epoch_end_one(self, step_output_list, dl_idx):
         # collate epoch_output
