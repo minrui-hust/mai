@@ -121,3 +121,65 @@ class TransformerDecoder(BaseModule):
         for layer in self.layer_list:
             x = layer(x, y, **args)
         return x
+
+
+@FI.register
+class PointnetLayer(BaseModule):
+    def __init__(self, in_channels, hidden_channels, linear_cfg, norm_cfg, act_cfg, feature_first=False):
+        r'''
+        Args:
+            dim: indicate which dim is feature dim
+        '''
+        super().__init__()
+        self.lin = FI.create(linear_cfg, in_channels, hidden_channels)
+        self.norm = FI.create(norm_cfg, hidden_channels)
+        self.act = FI.create(act_cfg)
+
+        self.norm_type = norm_cfg['type']
+        self.feature_dim = -2 if feature_first else -1
+        self.spatial_dim = -1 if feature_first else -2
+
+    def forward_train(self, x, mask=None):
+        x = self.lin(x)
+        if self.norm is not None:
+            if self.norm_type == 'LayerNorm' and mask is not None:
+                x = x.masked_fill(mask, 0)
+            x = self.norm(x)
+        if self.act is not None:
+            x = self.act(x)
+        if mask is not None:
+            x = x.masked_fill(mask, float('-inf'))
+
+        x_max = torch.max(x, dim=self.spatial_dim, keepdim=True)[0]
+        x = torch.cat([x, x_max.expand_as(x)], dim=self.feature_dim)
+
+        return x, x_max.squeeze(self.spatial_dim)
+
+
+@FI.register
+class PointNet(BaseModule):
+    def __init__(self, in_channels, hidden_channels, num_layers, linear_cfg, norm_cfg, act_cfg, feature_first=False, ret_point_wise=False):
+        super().__init__()
+        self.layers = nn.ModuleList()
+        for i in range(num_layers):
+            layer_cfg = dict(
+                type='PointnetLayer',
+                in_channels=in_channels if i == 0 else 2*hidden_channels,
+                hidden_channels=hidden_channels,
+                feature_first=feature_first,
+                linear_cfg=linear_cfg,
+                norm_cfg=norm_cfg,
+                act_cfg=act_cfg,
+            )
+            self.layers.append(FI.create(layer_cfg))
+
+        self.ret_point_wise = ret_point_wise
+
+    def forward_train(self, x, mask=None):
+        for layer in self.layers:
+            x, x_max = layer(x, mask)
+
+        if self.ret_point_wise:
+            return x
+        else:
+            return x_max
